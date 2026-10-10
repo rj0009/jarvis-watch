@@ -8,7 +8,6 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.json.JSONObject;
 
@@ -18,7 +17,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,11 +24,10 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
 
     private final ExecutorService exec = Executors.newSingleThreadExecutor();
-    private TextView psiValue, psiBand, psiNote, jogLine, pillar, riskLine, colourLine, updatedLine;
+    private TextView pmValue, pmLabel, aqiLine, psiLine, jogLine, pillar, riskLine, colourLine, updatedLine;
     private volatile boolean fetching = false;
 
     // ---- BaZi: RJ day master 戊 Wu Yang Earth ----
-    // favourable: Wood + Water, secondary: Metal, challenging: Fire + Earth
     private static final String[] STEMS = {"甲","乙","丙","丁","戊","己","庚","辛","壬","癸"};
     private static final String[] BRANCHES = {"子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"};
     private static final String[] STEM_ELEMENTS = {"Wood","Wood","Fire","Fire","Earth","Earth","Metal","Metal","Water","Water"};
@@ -42,42 +39,45 @@ public class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(30), dp(38), dp(30), dp(38));
+        root.setPadding(dp(24), dp(24), dp(24), dp(24));
         root.setBackgroundColor(Color.BLACK);
 
-        TextView title = mkText("JARVIS GLANCE", 12, Color.parseColor("#c9a227"), false);
+        TextView title = mkText("JARVIS GLANCE", 11, Color.parseColor("#c9a227"), false);
         title.setAllCaps(true);
         title.setLetterSpacing(0.15f);
         root.addView(title);
 
-        psiValue = mkText("—", 46, Color.WHITE, true);
-        root.addView(psiValue);
+        pmValue = mkText("—", 54, Color.WHITE, true);
+        root.addView(pmValue);
 
-        psiBand = mkText("PSI · West", 15, Color.WHITE, true);
-        root.addView(psiBand);
+        pmLabel = mkText("PM2.5 1H · WEST", 12, Color.WHITE, true);
+        root.addView(pmLabel);
 
-        psiNote = mkText("loading…", 12, Color.GRAY, false);
-        root.addView(psiNote);
+        aqiLine = mkText("", 28, Color.WHITE, true);
+        root.addView(aqiLine);
 
-        jogLine = mkText("JOG: …", 14, Color.WHITE, true);
+        psiLine = mkText("", 15, Color.WHITE, false);
+        root.addView(psiLine);
+
+        jogLine = mkText("JOG: …", 13, Color.WHITE, true);
         root.addView(jogLine);
 
         View div = new View(this);
         div.setBackgroundColor(Color.parseColor("#333333"));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 1);
-        lp.setMargins(dp(10), dp(14), dp(10), dp(14));
+        lp.setMargins(dp(8), dp(10), dp(8), dp(10));
         root.addView(div, lp);
 
-        pillar = mkText("—", 22, Color.WHITE, true);
+        pillar = mkText("—", 20, Color.WHITE, true);
         root.addView(pillar);
 
-        riskLine = mkText("", 14, Color.WHITE, true);
+        riskLine = mkText("", 13, Color.WHITE, true);
         root.addView(riskLine);
 
-        colourLine = mkText("", 13, Color.WHITE, false);
+        colourLine = mkText("", 12, Color.WHITE, false);
         root.addView(colourLine);
 
-        updatedLine = mkText("tap to refresh", 11, Color.GRAY, false);
+        updatedLine = mkText("tap to refresh", 10, Color.GRAY, false);
         root.addView(updatedLine);
 
         setContentView(root);
@@ -92,6 +92,7 @@ public class MainActivity extends Activity {
         t.setTextSize(sp);
         t.setTextColor(color);
         t.setGravity(Gravity.CENTER);
+        t.setIncludeFontPadding(false);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
         return t;
     }
@@ -101,34 +102,57 @@ public class MainActivity extends Activity {
     private void refresh() {
         if (fetching) return;
         fetching = true;
-        psiValue.setText("…");
+        pmValue.setText("…");
         updatedLine.setText("fetching…");
         exec.execute(() -> {
-            Integer psi = null; String ts = null;
-            try {
-                HttpURLConnection c = (HttpURLConnection) new URL("https://api.data.gov.sg/v1/environment/psi").openConnection();
-                c.setConnectTimeout(9000); c.setReadTimeout(9000);
-                c.setRequestProperty("accept", "application/json");
-                if (c.getResponseCode() == 200) {
-                    StringBuilder sb = new StringBuilder();
-                    try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream()))) {
-                        String l; while ((l = r.readLine()) != null) sb.append(l);
-                    }
-                    JSONObject d = new JSONObject(sb.toString());
-                    JSONObject v = d.getJSONArray("items").getJSONObject(0).getJSONObject("readings")
-                            .getJSONObject("psi_twenty_four_hourly");
-                    psi = v.optInt("west", -1); if (psi == -1) psi = null;
-                    ts = d.getJSONArray("items").getJSONObject(0).optString("timestamp", "");
-                }
-            } catch (Exception e) { /* offline: keep BaZi, show error below */ }
+            Integer pm25 = null, psi = null; String ts = null;
+            try { JSONObject d = getJson("https://api.data.gov.sg/v1/environment/pm25");
+                pm25 = d.getJSONArray("items").getJSONObject(0).getJSONObject("readings")
+                        .getJSONObject("pm25_one_hourly").optInt("west", -1);
+                if (pm25 == -1) pm25 = null;
+                ts = d.getJSONArray("items").getJSONObject(0).optString("timestamp", "");
+            } catch (Exception ignored) {}
+            try { JSONObject d = getJson("https://api.data.gov.sg/v1/environment/psi");
+                psi = d.getJSONArray("items").getJSONObject(0).getJSONObject("readings")
+                        .getJSONObject("psi_twenty_four_hourly").optInt("west", -1);
+                if (psi == -1) psi = null;
+            } catch (Exception ignored) {}
 
-            final Integer fPsi = psi;
-            final String fTs = ts, err = (psi == null ? "PSI fetch failed" : null);
-            runOnUiThread(() -> render(fPsi, fTs, err));
+            final Integer fPm = pm25, fPsi = psi;
+            final String fTs = ts, err = (pm25 == null ? "PM2.5 fetch failed" : null);
+            runOnUiThread(() -> render(fPm, fPsi, fTs, err));
         });
     }
 
-    private void render(Integer psi, String ts, String err) {
+    private JSONObject getJson(String url) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setConnectTimeout(9000); c.setReadTimeout(9000);
+        c.setRequestProperty("accept", "application/json");
+        if (c.getResponseCode() != 200) throw new RuntimeException("http " + c.getResponseCode());
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream()))) {
+            String l; while ((l = r.readLine()) != null) sb.append(l);
+        }
+        return new JSONObject(sb.toString());
+    }
+
+    // US EPA AQI estimate from 1-hr PM2.5 concentration
+    private static final double[][] AQI_BP = {
+        {0,12.0,0,50},{12.1,35.4,51,100},{35.5,55.4,101,150},
+        {55.5,150.4,151,200},{150.5,250.4,201,300},{250.5,350.4,301,400},{350.5,500,401,500}};
+
+    static int usAqi(int pm) {
+        double c = pm;
+        for (double[] b : AQI_BP) {
+            if (c >= b[0] && c <= b[1]) {
+                double v = b[2] + (c - b[0]) * (b[3] - b[2]) / (b[1] - b[0]);
+                return (int) Math.round(v);
+            }
+        }
+        return 500;
+    }
+
+    private void render(Integer pm, Integer psi, String ts, String err) {
         fetching = false;
 
         // ---- BaZi always renders, offline-safe ----
@@ -149,32 +173,42 @@ public class MainActivity extends Activity {
         riskLine.setTextColor(riskColor);
         colourLine.setText("Wear: " + colours);
 
-        // ---- PSI ----
-        if (psi != null) {
-            String band; int c; String note;
-            if (psi <= 50)      { band = "GOOD";       c = Color.parseColor("#22c55e"); note = "All activities OK"; }
-            else if (psi <= 100){ band = "MODERATE";   c = Color.parseColor("#eab308"); note = "Normal for most"; }
-            else if (psi <= 200){ band = "UNHEALTHY";  c = Color.parseColor("#f97316"); note = "Cut outdoor exertion"; }
-            else if (psi <= 300){ band = "VERY UNHEALTHY"; c = Color.parseColor("#ef4444"); note = "Stay indoors"; }
-            else                { band = "HAZARDOUS";  c = Color.parseColor("#a21caf"); note = "Masks · indoors"; }
+        // ---- PM2.5 / AQI / PSI ----
+        if (pm != null) {
+            int aqi = usAqi(pm);
+            String band; int c;
+            if (aqi <= 50)       { band = "GOOD";          c = Color.parseColor("#22c55e"); }
+            else if (aqi <= 100) { band = "MODERATE";      c = Color.parseColor("#eab308"); }
+            else if (aqi <= 150) { band = "USG — sensitive caution"; c = Color.parseColor("#f97316"); }
+            else if (aqi <= 200) { band = "UNHEALTHY";     c = Color.parseColor("#ef4444"); }
+            else if (aqi <= 300) { band = "VERY UNHEALTHY"; c = Color.parseColor("#a21caf"); }
+            else                 { band = "HAZARDOUS";    c = Color.parseColor("#7f1d1d"); }
 
-            psiValue.setText(String.valueOf(psi));
-            psiValue.setTextColor(c);
-            psiBand.setText("PSI 24h · " + band + " · West");
-            psiBand.setTextColor(c);
-            psiNote.setText(note);
+            pmValue.setText(String.valueOf(pm));
+            pmValue.setTextColor(c);
+            pmLabel.setText("PM2.5 1H · WEST µg/m³");
+            pmLabel.setTextColor(c);
+            aqiLine.setText("US AQI " + aqi);
+            aqiLine.setTextColor(c);
 
-            String jog = psi <= 50 ? "GO" : psi <= 100 ? "GO (hydrate)" : psi <= 150 ? "SHORT + N95 route" : "NO — indoors";
+            String jog;
+            if (aqi <= 100)       jog = "GO";
+            else if (aqi <= 150)  jog = "SHORT + N95";
+            else if (aqi <= 200)  jog = "NO — indoors or gym";
+            else                  jog = "NO — indoors";
             jogLine.setText("JOG: " + jog);
-            jogLine.setTextColor(psi <= 100 ? Color.parseColor("#22c55e") : Color.parseColor("#f97316"));
+            jogLine.setTextColor(aqi <= 100 ? Color.parseColor("#22c55e") : Color.parseColor("#f97316"));
         } else {
-            psiValue.setText("—");
-            psiValue.setTextColor(Color.WHITE);
-            psiBand.setText("PSI · West");
-            psiNote.setText(err != null ? err : "no data");
-            jogLine.setText("JOG: ? (no PSI)");
+            pmValue.setText("—");
+            pmValue.setTextColor(Color.WHITE);
+            pmLabel.setText("PM2.5 1H · WEST");
+            aqiLine.setText("");
+            jogLine.setText("JOG: ? (no data)");
             jogLine.setTextColor(Color.WHITE);
         }
+
+        psiLine.setText(psi != null ? ("PSI 24H: " + psi) : (pm == null ? "" : "PSI 24H: —"));
+        psiLine.setTextColor(Color.parseColor("#9ca3af"));
 
         String upd = ts != null && ts.length() >= 16 ? ts.substring(11, 16) + " SGT" : "";
         updatedLine.setText("tap to refresh" + (upd.isEmpty() ? "" : "  ·  " + upd));

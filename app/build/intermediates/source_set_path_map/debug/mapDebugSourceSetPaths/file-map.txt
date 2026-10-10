@@ -1,0 +1,7 @@
+sg.rj.jarviswatch.app-pngs-0 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/build/generated/res/pngs/debug
+sg.rj.jarviswatch.app-resValues-1 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/build/generated/res/resValues/debug
+sg.rj.jarviswatch.app-packageDebugResources-2 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+sg.rj.jarviswatch.app-packageDebugResources-3 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+sg.rj.jarviswatch.app-debug-4 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/build/intermediates/merged_res/debug/mergeDebugResources
+sg.rj.jarviswatch.app-debug-5 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/src/debug/res
+sg.rj.jarviswatch.app-main-6 /app/conversations/69b355c94ecd41b6c4b521dc/jarvis-watch/app/src/main/res

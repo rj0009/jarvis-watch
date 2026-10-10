@@ -1,0 +1,1 @@
+sg.rj.jarviswatch:style/AppTheme = 0x7f010000
